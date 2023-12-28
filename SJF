@@ -1,0 +1,322 @@
+#! /bin/bash
+
+Arrived=()
+Sorted=()
+pn=""
+pt=() # Processing Time
+ptc=(${pt[@]}) # Processing Time
+at=() # Arrival Time
+ta=() #Turnaround Time
+ct=() #Completion Time
+wt=() #Waiting Time
+LongestName=""
+TimeDiagram=() # Used for printing time diagram
+min=""
+
+# -----------------------Printing-------------------------
+#This function fills the TimeDiagram array.
+#▄ is used as a time block.
+FillArray(){
+local Index=$1 # Index of active process
+local Start=$2 # Start of time interval process as active from
+local End=$3   # End of time interval.
+local Running="" # Holds string to append to current running process
+local Waiting="" # Holds empty spaces to append to waiting processes
+local length=""
+local i=0
+
+# Fills the Running and Waiting strings with the appropriate string.
+for((i=$Start;i<$End;i++))
+do
+
+# Add ▄ or space depending on number of digits in time.
+# e.g. the number 20 adds two ▄ because it has 2 digits
+for((length=0;length<${#i};length++))
+do
+Running+="▄"
+Waiting+=" "
+done
+Running+="▄"
+Waiting+=" "
+done
+
+for((i=0;i<${#pt[@]};i++))
+do
+
+if(($i==$Index))
+then
+#Running+="▄"
+TimeDiagram[$i]+="$Running"
+else
+TimeDiagram[$i]+="${Waiting}"
+fi
+
+done
+
+}
+clear
+
+
+
+# Returns the longest name for visual purposes
+FindLongestName(){
+LongestName="P$pn"
+}
+
+# This function adds spaces for visuals
+AddSpaces(){
+local Long=$1
+local Short=$2
+local Amount=""
+local i=0
+((Amount=Long-Short))
+for((i=0;i<$Amount;i++))
+do
+printf " "
+done 
+}
+PrintHorizontal(){
+local Amount=$1
+local HorizontalLines=""
+for((i=0;i<=$Amount-1;i++))
+do
+HorizontalLines+="_"
+done
+printf "$HorizontalLines"
+}
+ShowTimeSchedule(){
+
+# This loop prints the process name with its respective time diagram
+local i=0;
+for((i=0;i<${#pt[@]};i++))
+do
+local temp="P$i"
+echo -n "P$i"
+AddSpaces ${#LongestName} ${#temp}
+printf "|\033[38;5;208m${TimeDiagram[i]}\033[0m\n"
+done
+
+# Prints row of numbers underneath schedule
+# Also prints the row of _ above said numbers
+local NumRow=""
+for((i=0;i<$SumPT+1;i++))
+do
+NumRow+="$i "
+done
+local HorizontalLines=""
+for((i=0;i<=${#NumRow}-1;i++))
+do
+HorizontalLines+="_"
+done
+AddSpaces ${#LongestName} 0
+printf "|"
+PrintHorizontal ${#NumRow}
+echo
+AddSpaces ${#LongestName} 0
+printf "|$NumRow"
+echo
+}
+ShowInfoTable(){
+AddSpaces ${#LongestName} 0
+# Variables for table headers for easy changing
+local Arrival="Arrival"
+local Processing="Processing"
+local Completion="Completion"
+local Turnaround="Turnaround"
+local Waiting="Waiting"
+local Header="|$Arrival|$Processing|$Completion|$Turnaround|$Waiting|"
+echo $Header
+local HorizontalLines=""
+local i=0;
+
+# Horizontal lines for visuals
+PrintHorizontal ${#LongestName}
+printf "|"
+PrintHorizontal ${#Arrival}
+printf "|"
+PrintHorizontal ${#Processing}
+printf "|"
+PrintHorizontal ${#Completion}
+printf "|"
+PrintHorizontal ${#Turnaround}
+printf "|"
+PrintHorizontal ${#Waiting}
+printf "|\n"
+
+#Prints info for each process
+for((i=0;i<${#pt[@]};i++))
+do
+# Print name
+local temp="P$i"
+echo -n "P$i"
+AddSpaces ${#LongestName} ${#temp}
+# Print Arrival Time
+printf "|${at[i]}"
+AddSpaces ${#Arrival} ${#at[i]}
+# Print Processing Time
+printf "|${pt[i]}"
+AddSpaces ${#Processing} ${#pt[i]}
+# Print Completion Time
+printf "|${ct[i]}"
+AddSpaces ${#Completion} ${#ct[i]}
+# Print Turnaround Time
+printf "|${ta[i]}"
+AddSpaces ${#Turnaround} ${#ta[i]}
+# Print Waiting Time
+printf "|${wt[i]}"
+AddSpaces ${#Waiting} ${#wt[i]}
+echo "|"
+done
+echo -e "\n\n\n"
+}
+
+# --------------------------------------------------------
+
+
+
+function input() {
+    # Validate input for the number of processes
+	pn=""
+    while true; do
+        read -p "Enter Processes no. : " pn
+        
+        if (( $pn < 99 && $pn > 1)); then
+            break
+        else
+            echo -e "\n\033[1;31mInvalid input. Please enter a valid positive integer for the number of processes.\033[0m\n"
+        fi
+    done
+    
+    for ((i = 0; i < ${pn} ; i++)); do
+        echo
+        read -p $'\033[1;37mEnter Arrival time and Processing time \033[1;31m(separated by space)\033[1;37m: \033[0m' atpt
+        
+        # Validate input for numeric values
+        if [[ $atpt =~ ^[0-9]+[[:space:]][0-9]+$ ]]; then
+            atpt=($atpt)
+            at[$i]=${atpt[0]}
+            pt[$i]=${atpt[1]}
+            echo -e "\033[38;5;208mProcess $i - Arrival Time: ${at[$i]}, Processing Time: ${pt[$i]}\033[0m"
+        else
+            echo -e "\n\033[1;31mInvalid input. Please enter numeric values for Arrival time and Processing time.\033[0m\n"
+            ((i--))  # Decrement i to re-enter values for the current process
+        fi
+    done
+	ptc=(${pt[@]})
+}
+
+Arr(){
+local timer=$GT
+local num=${#at[@]}
+local c=0
+local i=0
+
+for((i=0;i<$num;i++))
+do
+
+if((${at[i]}<$timer || ${at[i]}==$timer))
+then
+Arrived[$c]=$i
+((c++))
+fi
+done
+
+}
+
+Min(){
+local num=${#Arrived[@]} # Number of arrived processes
+
+if(($num==0))
+then
+min=-1
+return
+fi
+
+min=${Arrived[0]} # Index of minimum processing time
+local i=1;
+local index=0;
+# p0  pt 0
+# p1  pt 0
+# p2  pt 0
+# p3  not arrived yet pt 3
+for((i=1;i<num;i++))
+do
+
+Index=${Arrived[i]}
+if((${ptc[Index]}>0)) # Check if processing time of currently picked process is 0
+then
+
+if((${ptc[min]}>${ptc[Index]}||${ptc[min]}==0)) # Check if currently picked process' processing time is less than the current minimum's
+then
+min=${Arrived[i]} # Assign a new minimum index
+fi
+
+fi
+
+done
+
+if((${ptc[min]}==0))
+then
+min=-1
+fi
+
+}
+
+SumPT=0
+SumAllPt(){
+local i=0
+
+for((i=0;i<${#pt[@]};i++))
+do
+((SumPT+=${pt[i]}))
+done
+
+}
+
+min=-1
+SJF(){
+GT=0
+local End=$GT
+local Current=""
+Arr
+Min
+SumAllPt
+
+while(($GT!=$SumPT))
+do
+
+	# Check if no process has arrived
+	# min = -1 means there are no processes that have arrived
+	while(($min==-1))
+	do
+		((End++))
+		FillArray -1 $GT $End
+		((GT++))
+		((SumPT++))
+		Arr
+		Min
+		
+	done
+	Current=$min # Get index of current active process
+	
+	((End=$GT+pt[Current])) # Complete process' processing time in full
+	FillArray $Current $GT $End # Fill time scheduling
+	((GT=End))
+	((ptc[Current]=0))
+	((ct[Current]=End))
+	((ta[Current]=ct[Current]-at[Current]))
+	((wt[Current]=ta[Current]-pt[Current]))
+
+	Arr
+	Min
+	
+	
+done
+
+
+}
+input
+FindLongestName
+SJF
+ShowInfoTable
+ShowTimeSchedule
